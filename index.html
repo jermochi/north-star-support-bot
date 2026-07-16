@@ -4,10 +4,51 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>North Star Support Bot</title>
+  <meta name="description" content="Rule-based customer support chatbot for North Star Outfitters.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Phase 3: chatbot UI (header w/ LIVE AGENT switch, message list, chips, input) -->
+  <div class="app" role="application" aria-label="North Star Outfitters support chat">
+    <header class="chat-header" id="chatHeader">
+      <div class="brand">
+        <span class="logo-star" aria-hidden="true"></span>
+        <div class="brand-text">
+          <span class="brand-name">North Star Outfitters</span>
+          <span class="brand-sub" id="modeLabel">Support Bot</span>
+        </div>
+      </div>
+      <div class="status-pill" id="statusPill" hidden aria-live="polite">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="status-text">Live Agent</span>
+      </div>
+    </header>
+
+    <main class="chat" id="chat" role="log" aria-live="polite" aria-label="Conversation"></main>
+
+    <div class="chips" id="chips" role="group" aria-label="Quick replies"></div>
+
+    <form class="composer" id="composer" autocomplete="off">
+      <label class="visually-hidden" for="input">Type a message</label>
+      <input
+        class="input"
+        id="input"
+        type="text"
+        name="message"
+        placeholder="Type a message…"
+        autocomplete="off"
+        autocapitalize="sentences"
+        spellcheck="false"
+        aria-label="Type a message">
+      <button class="send" id="send" type="submit" aria-label="Send message">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+          <path d="M4 11.5 19 4.5l-4.2 15.2a.6.6 0 0 1-1.1.1L11 14l-6.6-1.4a.6.6 0 0 1-.4-1.1Z"
+                fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </form>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>
