@@ -21,6 +21,8 @@ HTML/CSS/JS, no frameworks, no build step. Full design spec lives in
    strings from `.local/SPEC.md`.
 7. **Both input modes everywhere.** Every state must accept both quick-reply
    chip clicks and free-typed input.
+8. **No emojis anywhere** — not in bot copy, UI, or docs. Status/mode indicators
+   use styled CSS elements (e.g. a colored dot), never emoji glyphs.
 
 ## File structure
 
@@ -55,7 +57,7 @@ focal point per view). Build all styling from these tokens — no one-off values
 --text:       #14211C;
 --text-muted: #5C6B63;
 --hairline:   #E3E1D8;  /* borders/dividers */
---agent:      #0FA37F;  /* LIVE AGENT mode accent — distinct from brand pine, pairs with 🟢 */
+--agent:      #0FA37F;  /* LIVE AGENT mode accent — distinct from brand pine, pairs with a CSS status dot */
 
 /* Type — system stack only (no external fonts) */
 --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -68,8 +70,9 @@ focal point per view). Build all styling from these tokens — no one-off values
 ```
 
 Rules: gold (`--star`) is an accent, not a fill — one focal point per view.
-LIVE AGENT mode visibly shifts the header to `--agent` + 🟢. WCAG AA contrast
-minimum. No gradient text, no glow, no decorative left-border stripes.
+LIVE AGENT mode visibly shifts the header to `--agent` with a small CSS status
+dot (a styled `<span>`, NOT an emoji). WCAG AA contrast minimum. No gradient
+text, no glow, no decorative left-border stripes.
 
 ## Build phases (see `.local/SPEC.md` for full detail)
 
