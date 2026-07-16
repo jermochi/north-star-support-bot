@@ -30,3 +30,9 @@ once the bot is built.
 | 23 | Full run chips-only, then typing-only | Both input modes work everywhere | 6.e | [ ] |
 | 24 | Open via file:// with Wi-Fi off; check console | Functional, zero errors, zero requests | 7.a.i | [ ] |
 | 25 | Test at 375px and a second browser | Layout intact | 6.e | [ ] |
+| 26 | Type "wats my ordir" (typo) | Order tracking flow starts (asks for / accepts order #) — fuzzy "ordir"→order | 3.a.i | [ ] |
+| 27 | Type "retrun policy" (typo) | Returns policy verbatim (30-day / unused / original packaging) — fuzzy "retrun"→return | 3.d.i.1 | [ ] |
+| 28 | Type "shiping times" (typo) | Shipping info verbatim (Standard 3–5, Expedited 1–2) — fuzzy "shiping"→shipping | 3.d.i.2 | [ ] |
+| 29 | Type "recomend a tent" (typo) | Recommendation flow starts (asks adventure type) — fuzzy "recomend"→recommend | 2.a.iii.1 | [ ] |
+| 30 | Type "yo" | Greeting, not fuzzy-routed (regression guard) | 3.a.i | [ ] |
+| 31 | Type "cat" | Two-strike fallback path, no false fuzzy match | 3.e.ii | [ ] |
