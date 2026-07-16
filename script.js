@@ -53,13 +53,18 @@ const session = {
 };
 
 /* ── DOM ──────────────────────────────────────────────────────────────── */
-const app       = document.querySelector(".app");
-const chatEl    = document.getElementById("chat");
-const chipsEl   = document.getElementById("chips");
-const formEl    = document.getElementById("composer");
-const inputEl   = document.getElementById("input");
-const statusEl  = document.getElementById("statusPill");
-const modeLabel = document.getElementById("modeLabel");
+/* Declared once; bound only in a browser so this file can also load under
+   Node for the dev test harness in .local/tests/ (never shipped). */
+let app, chatEl, chipsEl, formEl, inputEl, statusEl, modeLabel;
+if (typeof document !== "undefined") {
+  app       = document.querySelector(".app");
+  chatEl    = document.getElementById("chat");
+  chipsEl   = document.getElementById("chips");
+  formEl    = document.getElementById("composer");
+  inputEl   = document.getElementById("input");
+  statusEl  = document.getElementById("statusPill");
+  modeLabel = document.getElementById("modeLabel");
+}
 
 /* ── Rendering helpers ────────────────────────────────────────────────── */
 function scrollToBottom() {
@@ -155,6 +160,44 @@ function hasAny(t, terms) { return terms.some(k => t.includes(k)); }
 const MENU_COMMANDS = ["menu", "main menu", "start over", "back to menu", "options", "help", "start", "reset"];
 const GREETINGS = ["hi", "hello", "hey", "howdy", "hiya", "hey there", "hello there", "yo"];
 
+/* Deterministic Levenshtein — no deps, no network. */
+function editDistance(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let cur = [i];
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+/* Conservative typo tolerance: distance scaled to keyword length; input
+   tokens shorter than 4 chars must match exactly (guards against misrouting
+   short words like "buy"/"rep"/"yo"). */
+function fuzzyTokenMatches(token, keyword) {
+  if (token === keyword) return true;
+  if (token.length < 4) return false;
+  const maxDist = keyword.length <= 5 ? 1 : 2;
+  return editDistance(token, keyword) <= maxDist;
+}
+
+/* Single-word keywords per intent, in the SAME priority order as the exact
+   checks below. Multi-word phrases stay exact-only (fuzzing phrases misroutes). */
+const FUZZY_INTENTS = [
+  ["human_handoff",  ["agent", "human", "representative"]],
+  ["order_tracking", ["order", "track", "tracking", "package", "parcel", "shipment"]],
+  ["returns",        ["return", "refund", "exchange"]],
+  ["shipping_info",  ["shipping", "delivery", "expedited", "standard"]],
+  ["recommendations",["recommend", "suggest", "gift", "choose", "gear"]]
+];
+
 function detectIntent(text) {
   const norm = text.toLowerCase().replace(/[^\w\s']/g, " ").replace(/\s+/g, " ").trim();
   const t = " " + norm + " ";
@@ -185,6 +228,17 @@ function detectIntent(text) {
 
   if (GREETINGS.includes(norm) || /^(hi|hello|hey|howdy)\b/.test(norm)) return "greeting";
   if (/ (thanks|thank you|bye|goodbye|that's all|thats all) /.test(t)) return "thanks_bye";
+
+  // Fuzzy fallback — only reached when no exact intent, greeting, or thanks
+  // matched. Same priority order as the exact checks above.
+  const tokens = norm.split(" ").filter(Boolean);
+  for (const [intent, keywords] of FUZZY_INTENTS) {
+    for (const kw of keywords) {
+      for (const tok of tokens) {
+        if (fuzzyTokenMatches(tok, kw)) return intent;
+      }
+    }
+  }
 
   return "fallback";
 }
@@ -440,12 +494,18 @@ function submitInput(rawText) {
   botTurn(() => routeInput(text));
 }
 
-formEl.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const text = inputEl.value;
-  inputEl.value = "";
-  submitInput(text);
-});
+/* ── Boot (browser only) ──────────────────────────────────────────────── */
+if (typeof document !== "undefined") {
+  formEl.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = inputEl.value;
+    inputEl.value = "";
+    submitInput(text);
+  });
+  botTurn(welcome, 600);
+}
 
-/* ── Boot ─────────────────────────────────────────────────────────────── */
-botTurn(welcome, 600);
+/* ── Dev harness export (Node only; never runs in the browser) ────────── */
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { detectIntent, editDistance };
+}
