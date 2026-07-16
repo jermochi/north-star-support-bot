@@ -305,8 +305,9 @@ function matchAdventure(t) {
   return null;
 }
 function matchNeed(t) {
-  if (/apparel|clothing|clothes|layer|jacket|wear/.test(t)) return "apparel";
+  // footwear first — "footwear" contains "wear", so apparel must not grab it.
   if (/foot|boot|shoe|sneaker/.test(t)) return "footwear";
+  if (/apparel|clothing|clothes|layer|jacket|outerwear/.test(t)) return "apparel";
   if (/gear|equip/.test(t)) return "gear";
   return null;
 }
