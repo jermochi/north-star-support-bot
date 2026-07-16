@@ -1,0 +1,5 @@
+# Internal execution plan / spec — not a public deliverable
+.local/
+
+# Windows download metadata
+*:Zone.Identifier
