@@ -36,3 +36,11 @@ once the bot is built.
 | 29 | Type "recomend a tent" (typo) | Recommendation flow starts (asks adventure type) — fuzzy "recomend"→recommend | 2.a.iii.1 | [ ] |
 | 30 | Type "yo" | Greeting, not fuzzy-routed (regression guard) | 3.a.i | [ ] |
 | 31 | Type "cat" | Two-strike fallback path, no false fuzzy match | 3.e.ii | [ ] |
+| 32 | Type "Where is my ?" | Fallback ("didn't quite catch that"), NOT an order-number prompt | 3.e.ii | [ ] |
+| 33 | Type "where is my asdfgh" | Fallback — gibberish object is not a tracking request | 3.e.ii | [ ] |
+| 34 | Type "wheres my stuff" (no apostrophe) | Order tracking flow (asks for order number) | 3.a.i | [ ] |
+| 35 | Type "in order to get a refund what do I do" | Returns policy — "in order to" idiom must not trigger tracking | 3.d.i.1 | [ ] |
+| 36 | Type "I live in Denver" | Fallback — "live" without a role word is not a handoff request | 3.e.ii | [ ] |
+| 37 | Type "I saw a bear", then "my truck broke down" | Fallback both times (escalation offer on the second) — real words never fuzzy-match keywords | 3.e.ii | [ ] |
+| 38 | Type "how long is the tent" | Fallback — "how long" without shipping context is not a shipping question | 3.e.ii | [ ] |
+| 39 | Type "I ordered 2 tents" | Asks for order number; does NOT look up order #2 | 3.c.i.4 | [ ] |

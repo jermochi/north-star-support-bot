@@ -160,11 +160,13 @@ function hasAny(t, terms) { return terms.some(k => t.includes(k)); }
 const MENU_COMMANDS = ["menu", "main menu", "start over", "back to menu", "options", "help", "start", "reset"];
 const GREETINGS = ["hi", "hello", "hey", "howdy", "hiya", "hey there", "hello there", "yo"];
 
-/* Deterministic Levenshtein — no deps, no network. */
+/* Deterministic OSA distance (Levenshtein + adjacent transposition, so a
+   swapped pair like "retrun"→"return" costs 1) — no deps, no network. */
 function editDistance(a, b) {
   const m = a.length, n = b.length;
   if (m === 0) return n;
   if (n === 0) return m;
+  let prev2 = null;
   let prev = new Array(n + 1);
   for (let j = 0; j <= n; j++) prev[j] = j;
   for (let i = 1; i <= m; i++) {
@@ -172,19 +174,30 @@ function editDistance(a, b) {
     for (let j = 1; j <= n; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
+        cur[j] = Math.min(cur[j], prev2[j - 2] + 1);
     }
+    prev2 = prev;
     prev = cur;
   }
   return prev[n];
 }
 
-/* Conservative typo tolerance: distance scaled to keyword length; input
-   tokens shorter than 4 chars must match exactly (guards against misrouting
-   short words like "buy"/"rep"/"yo"). */
+/* Real English words one edit from a keyword that share its first letter —
+   the one case the guards below can't reject ("truck"→"track"). */
+const FUZZY_STOPLIST = new Set(["truck", "trick"]);
+
+/* Conservative typo tolerance: tokens shorter than 4 chars must match exactly
+   (guards short words like "buy"/"rep"/"yo"); the first letter must match
+   (rejects real-word neighbors like "bear"→"gear"); distance ≤1 for keywords
+   up to 6 chars, ≤2 from 7 (rejects "cheese"→"choose" while transpositions
+   like "retrun"→"return" still pass via OSA). */
 function fuzzyTokenMatches(token, keyword) {
   if (token === keyword) return true;
   if (token.length < 4) return false;
-  const maxDist = keyword.length <= 5 ? 1 : 2;
+  if (token[0] !== keyword[0]) return false;
+  if (FUZZY_STOPLIST.has(token)) return false;
+  const maxDist = keyword.length >= 7 ? 2 : 1;
   return editDistance(token, keyword) <= maxDist;
 }
 
@@ -194,32 +207,43 @@ const FUZZY_INTENTS = [
   ["human_handoff",  ["agent", "human", "representative"]],
   ["order_tracking", ["order", "track", "tracking", "package", "parcel", "shipment"]],
   ["returns",        ["return", "refund", "exchange"]],
-  ["shipping_info",  ["shipping", "delivery", "expedited", "standard"]],
+  ["shipping_info",  ["shipping", "delivery", "expedited"]],
   ["recommendations",["recommend", "suggest", "gift", "choose", "gear"]]
 ];
 
 function detectIntent(text) {
-  const norm = text.toLowerCase().replace(/[^\w\s']/g, " ").replace(/\s+/g, " ").trim();
+  let norm = text.toLowerCase().replace(/[^\w\s']/g, " ").replace(/\s+/g, " ").trim();
+  // "in order to" is an idiom, not an order reference — strip it so its
+  // "order" can't trigger tracking ("in order to get a refund" → returns).
+  norm = norm.replace(/\bin order to\b/g, " ").replace(/\s+/g, " ").trim();
   const t = " " + norm + " ";
 
   // Menu is a command match on the whole message, so "shipping options" and
   // "help me choose gear" are NOT swallowed as menu requests.
   if (MENU_COMMANDS.includes(norm) || /\b(main menu|start over|back to menu)\b/.test(norm)) return "menu";
 
-  // Human handoff — checked early so "agent"/"human" always wins.
-  if (hasAny(t, [" agent", " human", " representative", " rep ", " live ",
+  // Human handoff — checked early so "agent"/"human" always wins. "live"
+  // only counts paired with a role word ("I live in Denver" must not match).
+  if (hasAny(t, [" agent", " human", " representative", " rep ",
+                 "live agent", "live person", "live chat", "live support", "live rep",
                  "talk to", "speak to", "speak with", "customer service", "real person"]))
     return "human_handoff";
 
-  // Order tracking beats shipping when order/track words are present (disambiguation rule).
-  if (hasAny(t, [" order", " track", "tracking", " package", " parcel", " shipment",
-                 "where is my", "wheres my", "where's my"]))
+  // Order tracking beats shipping when order/track words are present
+  // (disambiguation rule). "where('s) my" needs a trackable object — a bare
+  // or gibberish object ("where is my ?") falls through to the fallback.
+  if (hasAny(t, [" order", " track", "tracking", " package", " parcel", " shipment"]) ||
+      /\bwhere('?s| is| was)? my (orders?|package|parcel|shipment|delivery|stuff|items?|gear|purchase)\b/.test(norm))
     return "order_tracking";
 
-  if (hasAny(t, [" return", " refund", " exchange", "send back", "send it back", "money back"]))
+  if (hasAny(t, [" return", " refund", " exchange", "money back"]) ||
+      /\bsend (it |this |that |them )?back\b/.test(norm))
     return "returns";
 
-  if (hasAny(t, [" shipping", "how long", "delivery time", " delivery", " expedited", " standard"]))
+  // "how long" alone is too weak ("how long is the tent") — it needs
+  // shipping context. Bare "standard" is dropped for the same reason.
+  if (hasAny(t, [" shipping", "delivery time", " delivery", " expedited"]) ||
+      (t.includes("how long") && hasAny(t, [" ship", " deliver", " arriv", " take "])))
     return "shipping_info";
 
   if (hasAny(t, ["recommend", " suggest", "looking for", " buy ", " gift", " need a",
@@ -245,6 +269,14 @@ function detectIntent(text) {
 
 function extractOrderNumber(text) {
   const m = text.match(/#?\s*(\d+)/);
+  return m ? m[1] : null;
+}
+
+/* Menu-level inline detection is stricter than the explicit ask: only a
+   "#"-prefixed or 3+ digit number counts, so "I ordered 2 tents" asks for
+   the order number instead of looking up order #2. */
+function extractInlineOrderNumber(text) {
+  const m = text.match(/#\s*(\d+)/) || text.match(/\b(\d{3,})\b/);
   return m ? m[1] : null;
 }
 
@@ -473,7 +505,7 @@ function routeInput(text) {
 
 function handleMainMenu(text, intent) {
   switch (intent) {
-    case "order_tracking": startOrderFlow(extractOrderNumber(text)); break;
+    case "order_tracking": startOrderFlow(extractInlineOrderNumber(text)); break;
     case "returns":        doReturns(); break;
     case "shipping_info":  doShipping(); break;
     case "recommendations":startReco(); break;
